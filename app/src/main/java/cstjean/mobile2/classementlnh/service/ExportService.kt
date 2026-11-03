@@ -10,9 +10,12 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.Environment
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.provider.MediaStore
 import android.util.Log
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import com.google.gson.GsonBuilder
@@ -23,6 +26,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -61,13 +65,19 @@ class ExportService : Service() {
             try {
                 val repository = (applicationContext as ClassementLnhApplication).repository
 
+                // Les délais espacent les notifications : Android ignore celles
+                // publiées trop rapidement (limite d'environ 5 par seconde).
+                delay(DELAI_ETAPE_MS)
                 mettreAJourNotification("Lecture du classement dans la base de données...", 20)
                 val equipes = repository.obtenirClassementPourExport()
 
+                delay(DELAI_ETAPE_MS)
                 mettreAJourNotification("Génération du fichier JSON...", 60)
                 val nomFichier = genererEtSauvegarderJson(equipes)
 
-                messageFinal = "Exportation réussie : $nomFichier (${equipes.size} équipes)"
+                delay(DELAI_ETAPE_MS)
+                messageFinal = "Exportation réussie : Download/$nomFichier (${equipes.size} équipes)"
+                Log.d(TAG, messageFinal)
             } catch (e: Exception) {
                 Log.e(TAG, "Échec de l'exportation", e)
                 messageFinal = "Échec de l'exportation : ${e.localizedMessage ?: "erreur inconnue"}"
@@ -76,6 +86,7 @@ class ExportService : Service() {
             // 3. Fin : on retire la notification de premier plan et on affiche le résultat
             ServiceCompat.stopForeground(this@ExportService, ServiceCompat.STOP_FOREGROUND_REMOVE)
             afficherNotificationResultat(messageFinal)
+            afficherToast(messageFinal)
             stopSelf(startId)
         }
 
@@ -175,8 +186,16 @@ class ExportService : Service() {
         manager.notify(NOTIFICATION_RESULTAT_ID, construireNotification(texte, 100, enCours = false))
     }
 
+    /** Message visible même si la permission de notification est refusée. */
+    private fun afficherToast(texte: String) {
+        Handler(Looper.getMainLooper()).post {
+            Toast.makeText(applicationContext, texte, Toast.LENGTH_LONG).show()
+        }
+    }
+
     companion object {
         private const val TAG = "ExportService"
+        private const val DELAI_ETAPE_MS = 700L
         const val CHANNEL_ID = "export_classement_channel"
         const val NOTIFICATION_ID = 1001
         const val NOTIFICATION_RESULTAT_ID = 1002
