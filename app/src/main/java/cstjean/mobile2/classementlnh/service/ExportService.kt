@@ -62,6 +62,7 @@ class ExportService : Service() {
         // 2. Traitement d'exportation
         serviceScope.launch {
             var messageFinal: String
+            var reussite = false
             try {
                 val repository = (applicationContext as ClassementLnhApplication).repository
 
@@ -78,6 +79,7 @@ class ExportService : Service() {
                 delay(DELAI_ETAPE_MS)
                 messageFinal = "Exportation réussie : Download/$nomFichier (${equipes.size} équipes)"
                 Log.d(TAG, messageFinal)
+                reussite = true
             } catch (e: Exception) {
                 Log.e(TAG, "Échec de l'exportation", e)
                 messageFinal = "Échec de l'exportation : ${e.localizedMessage ?: "erreur inconnue"}"
@@ -85,7 +87,7 @@ class ExportService : Service() {
 
             // 3. Fin : on retire la notification de premier plan et on affiche le résultat
             ServiceCompat.stopForeground(this@ExportService, ServiceCompat.STOP_FOREGROUND_REMOVE)
-            afficherNotificationResultat(messageFinal)
+            afficherNotificationResultat(messageFinal, reussite)
             afficherToast(messageFinal)
             stopSelf(startId)
         }
@@ -153,8 +155,18 @@ class ExportService : Service() {
             ).apply {
                 description = "Progression et résultat de l'exportation JSON du classement LNH"
             }
+            // Canal séparé pour le résultat : importance haute pour que la
+            // notification s'affiche à l'écran (le canal LOW reste silencieux).
+            val canalResultat = NotificationChannel(
+                CHANNEL_RESULTAT_ID,
+                "Résultat de l'exportation",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Indique si l'exportation JSON a réussi ou échoué"
+            }
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.createNotificationChannel(canal)
+            manager.createNotificationChannel(canalResultat)
         }
     }
 
@@ -181,9 +193,17 @@ class ExportService : Service() {
         manager.notify(NOTIFICATION_ID, construireNotification(texte, progres, enCours = true))
     }
 
-    private fun afficherNotificationResultat(texte: String) {
+    private fun afficherNotificationResultat(texte: String, reussite: Boolean) {
+        val notification = NotificationCompat.Builder(this, CHANNEL_RESULTAT_ID)
+            .setContentTitle(if (reussite) "Exportation réussie" else "Échec de l'exportation")
+            .setContentText(texte)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(texte))
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .build()
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        manager.notify(NOTIFICATION_RESULTAT_ID, construireNotification(texte, 100, enCours = false))
+        manager.notify(NOTIFICATION_RESULTAT_ID, notification)
     }
 
     /** Message visible même si la permission de notification est refusée. */
@@ -197,6 +217,7 @@ class ExportService : Service() {
         private const val TAG = "ExportService"
         private const val DELAI_ETAPE_MS = 700L
         const val CHANNEL_ID = "export_classement_channel"
+        const val CHANNEL_RESULTAT_ID = "export_classement_resultat"
         const val NOTIFICATION_ID = 1001
         const val NOTIFICATION_RESULTAT_ID = 1002
     }
