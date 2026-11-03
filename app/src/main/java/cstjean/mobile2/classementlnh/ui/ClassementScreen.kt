@@ -1,7 +1,12 @@
 package cstjean.mobile2.classementlnh.ui
 
+import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,7 +17,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Badge
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -27,7 +34,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.work.WorkManager
 import cstjean.mobile2.classementlnh.business.EquipeUiModel
+import cstjean.mobile2.classementlnh.service.ExportService
+import cstjean.mobile2.classementlnh.worker.SyncClassementWorker
 import cstjean.mobile2.classementlnh.viewmodel.ClassementViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,6 +49,26 @@ fun ClassementScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+
+    // Observation de l'état du travail périodique WorkManager
+    val workInfos by WorkManager.getInstance(context)
+        .getWorkInfosForUniqueWorkFlow(SyncClassementWorker.NOM_TRAVAIL_UNIQUE)
+        .collectAsState(initial = emptyList())
+    val etatSync = workInfos.firstOrNull()?.state?.name
+
+    // Demande de la permission POST_NOTIFICATIONS (Android 13+)
+    val launcherPermissionNotification = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { estAccorde ->
+        if (!estAccorde) {
+            Toast.makeText(
+                context,
+                "Permission refusée : l'exportation s'exécutera sans notification visible.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+        demarrerServiceExportation(context)
+    }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Classement LNH") }) }
@@ -53,10 +84,37 @@ fun ClassementScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                OutlinedButton(
+                    onClick = { viewModel.synchroniser() },
+                    enabled = !state.estEnChargement
+                ) {
+                    Text("Synchroniser")
+                }
+
                 Button(onClick = {
-                    //TODO : Exporter les données
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                        ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.POST_NOTIFICATIONS
+                        ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+                    ) {
+                        launcherPermissionNotification.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        demarrerServiceExportation(context)
+                    }
                 }) {
                     Text("Exporter")
+                }
+            }
+
+            etatSync?.let { etat ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    Text("Sync auto (WorkManager) :", style = MaterialTheme.typography.bodySmall)
+                    Badge { Text(etat) }
                 }
             }
 
@@ -120,4 +178,9 @@ fun EquipeItem(equipe: EquipeUiModel) {
             Text(text = "${equipe.points} PTS", style = MaterialTheme.typography.titleLarge)
         }
     }
+}
+
+private fun demarrerServiceExportation(context: Context) {
+    val intent = Intent(context, ExportService::class.java)
+    ContextCompat.startForegroundService(context, intent)
 }
