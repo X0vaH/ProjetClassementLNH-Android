@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.IOException
 
 class ClassementViewModel(
     private val repository: ClassementRepository
@@ -39,11 +40,20 @@ class ClassementViewModel(
             try {
                 repository.synchroniser()
                 _uiState.update { it.copy(estEnChargement = false) }
+            } catch (e: IOException) {
+                // Pas de réseau ou API inaccessible : les données locales (Room) restent affichées
+                _uiState.update {
+                    it.copy(
+                        estEnChargement = false,
+                        messageErreur = "Aucune connexion : impossible de joindre l'API LNH. " +
+                            "Affichage des dernières données enregistrées."
+                    )
+                }
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
                         estEnChargement = false,
-                        messageErreur = "Erreur de synchronisation : ${e.localizedMessage ?: "Réseau indisponible"}"
+                        messageErreur = "Erreur de synchronisation : ${e.localizedMessage ?: "erreur inconnue"}"
                     )
                 }
             }

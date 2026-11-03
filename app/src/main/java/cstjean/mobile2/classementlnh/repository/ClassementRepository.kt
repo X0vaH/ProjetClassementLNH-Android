@@ -35,7 +35,7 @@ class ClassementRepository(
      */
     fun observerDerniereSynchronisation(): Flow<String?> {
         return metadataDao.observerDerniereSynchronisation().map { metadata ->
-            metadata?.dateHeureIso
+            metadata?.dateHeureIso?.let { convertirEnHeureLocale(it) }
         }
     }
 
@@ -55,6 +55,19 @@ class ClassementRepository(
         metadataDao.enregistrerDerniereSynchronisation(
             SyncMetadataEntity(id = 1, dateHeureIso = dateIso)
         )
+    }
+
+    /** Convertit la date enregistrée en UTC vers l'heure locale de l'appareil. */
+    private fun convertirEnHeureLocale(dateUtc: String): String {
+        return try {
+            val formatUtc = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+            }
+            val date = formatUtc.parse(dateUtc) ?: return dateUtc
+            SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.CANADA_FRENCH).format(date)
+        } catch (e: Exception) {
+            dateUtc
+        }
     }
 
     /**
