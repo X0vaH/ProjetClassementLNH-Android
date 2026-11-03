@@ -4,6 +4,7 @@ import android.app.Application
 import cstjean.mobile2.classementlnh.data.remote.RetrofitInstance
 import cstjean.mobile2.classementlnh.database.local.AppDatabase
 import cstjean.mobile2.classementlnh.repository.ClassementRepository
+import cstjean.mobile2.classementlnh.worker.SyncClassementWorker
 
 class ClassementLnhApplication : Application() {
     val database by lazy { AppDatabase.getInstance(this) }
@@ -18,5 +19,7 @@ class ClassementLnhApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // Planification de la synchronisation périodique au démarrage de l'application
+        SyncClassementWorker.planifier(this)
     }
 }
