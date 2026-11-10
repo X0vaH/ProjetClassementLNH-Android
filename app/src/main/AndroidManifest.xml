@@ -26,6 +26,26 @@
             android:foregroundServiceType="dataSync"
             tools:ignore="ForegroundServicePermission" />
 
+        <!-- Réception des notifications push Firebase -->
+        <service
+            android:name=".service.ClassementFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- Passerelle sécurisée pour partager le fichier exporté (Android 9 et moins) -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

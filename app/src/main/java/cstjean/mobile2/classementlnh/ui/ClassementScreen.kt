@@ -1,8 +1,8 @@
 package cstjean.mobile2.classementlnh.ui
 
 import android.Manifest
-import android.content.Context
-import android.content.Intent
+
+
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,6 +31,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -56,6 +60,15 @@ fun ClassementScreen(
         .collectAsState(initial = emptyList())
     val etatSync = workInfos.firstOrNull()?.state?.name
 
+    // Observation de la tâche unique « Synchroniser maintenant » (test)
+    val workInfosImmediat by WorkManager.getInstance(context)
+        .getWorkInfosForUniqueWorkFlow(SyncClassementWorker.NOM_TRAVAIL_IMMEDIAT)
+        .collectAsState(initial = emptyList())
+    val etatSyncImmediate = workInfosImmediat.firstOrNull()?.state?.name
+
+    // Exportation en attente de la réponse à la demande de permission (true = échec simulé)
+    var simulerEchecEnAttente by remember { mutableStateOf(false) }
+
     // Demande de la permission POST_NOTIFICATIONS (Android 13+)
     val launcherPermissionNotification = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -67,7 +80,21 @@ fun ClassementScreen(
                 Toast.LENGTH_LONG
             ).show()
         }
-        demarrerServiceExportation(context)
+        ExportService.demarrer(context, simulerEchecEnAttente)
+    }
+
+    val lancerExportation: (Boolean) -> Unit = { simulerEchec ->
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            simulerEchecEnAttente = simulerEchec
+            launcherPermissionNotification.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            ExportService.demarrer(context, simulerEchec)
+        }
     }
 
     Scaffold(
@@ -91,19 +118,32 @@ fun ClassementScreen(
                     Text("Synchroniser")
                 }
 
-                Button(onClick = {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                        ContextCompat.checkSelfPermission(
-                            context,
-                            Manifest.permission.POST_NOTIFICATIONS
-                        ) != android.content.pm.PackageManager.PERMISSION_GRANTED
-                    ) {
-                        launcherPermissionNotification.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    } else {
-                        demarrerServiceExportation(context)
-                    }
-                }) {
+                Button(onClick = { lancerExportation(false) }) {
                     Text("Exporter")
+                }
+            }
+
+            // Boutons temporaires pour les tests de l'Exercice 5
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = { SyncClassementWorker.synchroniserMaintenant(context) }) {
+                    Text("Sync maintenant")
+                }
+                TextButton(onClick = { lancerExportation(true) }) {
+                    Text("Export (échec)")
+                }
+            }
+
+            etatSyncImmediate?.let { etat ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("Sync maintenant (tâche unique) :", style = MaterialTheme.typography.bodySmall)
+                    Badge { Text(etat) }
                 }
             }
 
@@ -178,9 +218,4 @@ fun EquipeItem(equipe: EquipeUiModel) {
             Text(text = "${equipe.points} PTS", style = MaterialTheme.typography.titleLarge)
         }
     }
-}
-
-private fun demarrerServiceExportation(context: Context) {
-    val intent = Intent(context, ExportService::class.java)
-    ContextCompat.startForegroundService(context, intent)
 }
