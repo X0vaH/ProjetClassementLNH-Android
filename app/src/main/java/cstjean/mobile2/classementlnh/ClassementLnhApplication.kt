@@ -28,11 +28,8 @@ class ClassementLnhApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        // Création des canaux de notification, une seule fois au démarrage
+        // Création des canaux de notification (exportation, classement, push), une seule fois au démarrage
         NotificationHelper(this).creerCanaux()
-
-        // Initialisation du canal de notification via le Helper
-        NotificationHelper(this).creerCanalPush()
 
         // Planification de la synchronisation périodique au démarrage de l'application
         SyncClassementWorker.planifier(this)

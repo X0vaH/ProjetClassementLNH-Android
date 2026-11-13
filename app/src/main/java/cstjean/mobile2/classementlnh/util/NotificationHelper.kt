@@ -31,17 +31,28 @@ class NotificationHelper(private val context: Context) {
      * au démarrage (ClassementLnhApplication.onCreate).
      */
     fun creerCanaux() {
+        // Importance DEFAULT : l'exportation est lancée par l'utilisateur, qui attend le résultat.
+        // La notification doit être visible avec un son discret, sans interrompre ce qu'il fait
+        // (la progression est silencieuse grâce à setOnlyAlertOnce et à la priorité LOW).
         creerCanal(
             CHANNEL_EXPORT_ID, "Exportation",
             "Progression et résultat de l'exportation JSON du classement",
             NotificationManager.IMPORTANCE_DEFAULT
         )
 
+        // Importance HIGH : un changement de classement est l'information principale de l'app
+        // et elle est envoyée en arrière-plan, sans action de l'utilisateur. Elle doit donc
+        // apparaître en bannière pour être remarquée. Elle reste rare : le Worker ne notifie
+        // que si au moins une équipe a changé de position.
         creerCanal(
             CHANNEL_CLASSEMENT_ID, "Classement",
             "Changements de positions après une synchronisation du classement",
             NotificationManager.IMPORTANCE_HIGH
         )
+
+        // Canal des notifications push (Firebase), créé ici pour que tous les canaux le soient
+        // une seule fois, au démarrage.
+        creerCanalPush()
 
         // L'importance d'un canal existant ne peut plus être modifiée par l'app :
         // on supprime l'ancien canal Classement (créé en IMPORTANCE_LOW).
@@ -209,6 +220,8 @@ class NotificationHelper(private val context: Context) {
      * Crée le canal de notification pour la synchronisation / push.
      */
     fun creerCanalPush() {
+        // Importance DEFAULT : un message envoyé par un serveur est informatif, pas urgent.
+        // Il fait un son discret sans s'afficher en bannière.
         creerCanal(
             CHANNEL_PUSH_ID, "Notifications push (Test Firebase)",
             "Canal utilisé pour les notifications push",
