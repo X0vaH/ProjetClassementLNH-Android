@@ -141,12 +141,12 @@ L'APK est généré dans `app/build/outputs/apk/debug/app-debug.apk`.
 
 ## Configuration Firebase
 
-Le plugin `com.google.gms.google-services` n'est appliqué **que si** `app/google-services.json` est présent. Le projet compile donc avec ou sans Firebase.
+Le plugin `com.google.gms.google-services` est appliqué au module `app` : le fichier **`app/google-services.json` est obligatoire** pour compiler. Le dépôt inclut celui du projet Firebase d'origine, donc l'application compile et se lance telle quelle ; les notifications push ne seront toutefois envoyées qu'à partir de ce projet Firebase.
 
 Pour utiliser votre propre projet Firebase :
 
 1. Dans la [console Firebase](https://console.firebase.google.com/), ajouter une application Android avec le package **`cstjean.mobile2.classementlnh`**.
-2. Télécharger `google-services.json` et le placer dans **`app/`**, avec exactement ce nom.
+2. Télécharger `google-services.json` et **remplacer** celui de **`app/`**, avec exactement ce nom.
 3. Synchroniser Gradle, puis lancer l'application et accepter la permission de notification.
 4. Copier le jeton FCM affiché dans Logcat (filtre `FCM_TOKEN`).
 5. Console Firebase → **Messaging** → *Créer une campagne* → *Messages Firebase Notifications* → **Envoyer un message de test** → coller le jeton → **Tester**.

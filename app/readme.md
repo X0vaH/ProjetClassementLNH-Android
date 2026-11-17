@@ -134,6 +134,6 @@ Si l'exportation JSON échoue, la notification d'échec comporte un bouton d'act
 
 1. Dans la [Console Firebase](https://console.firebase.google.com/), ajouter une application Android avec le package **`cstjean.mobile2.classementlnh`**.
 2. Télécharger `google-services.json` et le placer dans le dossier **`app/`**.
-3. Synchroniser Gradle. Le plugin `google-services` n'est appliqué que si ce fichier existe, ce qui permet au projet de compiler sans lui.
+3. Synchroniser Gradle. Le plugin `google-services` est toujours appliqué : ce fichier est obligatoire pour compiler.
 4. Lancer l'app, accepter la permission de notification et copier le jeton affiché dans Logcat (filtre `FCM_TOKEN`).
 5. Console Firebase → **Messaging** → *Créer une campagne* → *Messages Firebase Notifications* → **Envoyer un message de test** → coller le jeton → **Tester**.
